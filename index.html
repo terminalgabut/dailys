@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototipe Log Lari - JS & Supabase JSONB</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6 font-sans">
+
+    <div class="max-w-4xl mx-auto space-y-8">
+        <h1 class="text-3xl font-bold text-center text-indigo-700">🏃‍♂️ Prototipe Dashboard Lari</h1>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">📝 Form Input Aktivitas</h2>
+            <form id="form-aktivitas" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nama Aktivitas</label>
+                        <input type="text" id="nama" required class="mt-1 block w-full p-2 border border-gray-300 rounded" placeholder="Contoh: Easy Run Sore">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Tanggal Sesi</label>
+                        <input type="date" id="tanggal" required class="mt-1 block w-full p-2 border border-gray-300 rounded">
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-md font-medium text-gray-700 mb-2">⏱️ Tabel Split Per Kilometer (Dinamis JSON)</h3>
+                    <table class="w-full text-sm text-left border">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="p-2 border">KM Ke-</th>
+                                <th class="p-2 border">Pace (/KM)</th>
+                                <th class="p-2 border">Catatan Rute</th>
+                                <th class="p-2 border text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="container-input-splits">
+                            <tr class="baris-split">
+                                <td class="p-2 border font-bold text-center input-km-ke">1</td>
+                                <td class="p-2 border"><input type="text" placeholder="06:15" required class="w-full p-1 border rounded input-pace"></td>
+                                <td class="p-2 border"><input type="text" placeholder="Kondisi rute datar" class="w-full p-1 border rounded input-catatan"></td>
+                                <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline">Hapus</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button type="button" onclick="tambahBaris()" class="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">+ Tambah KM</button>
+                </div>
+
+                <div class="pt-4 text-right">
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded font-medium hover:bg-indigo-700">Simpan ke Supabase DB</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800">📊 View Data dari DB (JSONB Render)</h2>
+            <div class="text-right mb-4">
+                <button onclick="fetchDataDariSupabase()" class="bg-gray-600 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-700">🔄 Refresh Data</button>
+            </div>
+            
+            <div id="loading-text" class="text-center text-gray-500 hidden">Memuat data dari database...</div>
+            <div id="container-view-aktivitas" class="space-y-4">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIG SUPABASE: Ganti dengan URL dan Anon Key project Supabase Anda sendiri
+        const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+        const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
+
+        // Inisialisasi Supabase Client
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let counterKM = 1;
+
+        // Fungsi JavaScript untuk menambah baris input KM secara dinamis
+        function tambahBaris() {
+            counterKM++;
+            const tbody = document.getElementById('container-input-splits');
+            const tr = document.createElement('tr');
+            tr.className = 'baris-split';
+            tr.innerHTML = `
+                <td class="p-2 border font-bold text-center input-km-ke">${counterKM}</td>
+                <td class="p-2 border"><input type="text" placeholder="05:50" required class="w-full p-1 border rounded input-pace"></td>
+                <td class="p-2 border"><input type="text" placeholder="Catatan.." class="w-full p-1 border rounded input-catatan"></td>
+                <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline">Hapus</button></td>
+            `;
+            tbody.appendChild(tr);
+            urutkanUlangKM();
+        }
+
+        function hapusBaris(button) {
+            const baris = button.closest('tr');
+            baris.remove();
+            urutkanUlangKM();
+        }
+
+        function urutkanUlangKM() {
+            const semuaBaris = document.querySelectorAll('.baris-split');
+            counterKM = 0;
+            semuaBaris.forEach((baris) => {
+                counterKM++;
+                baris.querySelector('.input-km-ke').innerText = counterKM;
+            });
+        }
+
+        // PROSES SIMPAN (INSERT) KE SUPABASE
+        document.getElementById('form-aktivitas').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const nama = document.getElementById('nama').value;
+            const tanggal = document.getElementById('tanggal').value;
+
+            // Ekstraksi data dinamis tabel menjadi Array JSON
+            const dataSplitsJSON = [];
+            const semuaBaris = document.querySelectorAll('.baris-split');
+            
+            semuaBaris.forEach((baris) => {
+                const km = parseInt(baris.querySelector('.input-km-ke').innerText);
+                const pace = baris.querySelector('.input-pace').value;
+                const catatan = baris.querySelector('.input-catatan').value;
+                
+                dataSplitsJSON.push({ km, pace, catatan });
+            });
+
+            // Kirim Objek JSON langsung ke kolom 'splits' di Supabase
+            const { data, error } = await supabase
+                .from('aktivitas_lari') // Pastikan nama tabel di Supabase Anda sama
+                .insert([{ nama, tanggal, splits: dataSplitsJSON }]);
+
+            if (error) {
+                alert('Gagal menyimpan ke DB: ' + error.message);
+            } else {
+                alert('Berhasil menyimpan data JSON panjang ke DB!');
+                document.getElementById('form-aktivitas').reset();
+                document.getElementById('container-input-splits').innerHTML = `
+                    <tr class="baris-split">
+                        <td class="p-2 border font-bold text-center input-km-ke">1</td>
+                        <td class="p-2 border"><input type="text" placeholder="06:15" required class="w-full p-1 border rounded input-pace"></td>
+                        <td class="p-2 border"><input type="text" placeholder="..." class="w-full p-1 border rounded input-catatan"></td>
+                        <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline">Hapus</button></td>
+                    </tr>
+                `;
+                urutkanUlangKM();
+                fetchDataDariSupabase(); // Muat ulang daftar view
+            }
+        });
+
+        // PROSES MENGAMBIL DATA (SELECT & RENDER VIEW)
+        async function fetchDataDariSupabase() {
+            const loading = document.getElementById('loading-text');
+            const container = document.getElementById('container-view-aktivitas');
+            
+            loading.classList.remove('hidden');
+            container.innerHTML = '';
+
+            const { data, error } = await supabase
+                .from('aktivitas_lari')
+                .select('*')
+                .order('tanggal', { ascending: false });
+
+            loading.classList.add('hidden');
+
+            if (error) {
+                container.innerHTML = `<p class="text-red-500 text-center">Gagal memuat: ${error.message}</p>`;
+                return;
+            }
+
+            if (data.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 text-center py-4">Belum ada data aktivitas lari.</p>`;
+                return;
+            }
+
+            // Render hasil ke komponen View
+            data.forEach((aktivitas) => {
+                let barisTabelHTML = '';
+                
+                // Mengurai array JSON secara langsung tanpa JSON.parse manual karena sudah di-handle SDK Supabase
+                const listSplits = aktivitas.splits || [];
+                
+                listSplits.forEach((split) => {
+                    barisTabelHTML += `
+                        <tr class="bg-gray-50">
+                            <td class="p-1.5 border text-center font-semibold">KM ${split.km}</td>
+                            <td class="p-1.5 border text-indigo-600">${split.pace} /KM</td>
+                            <td class="p-1.5 border text-gray-600 text-xs">${split.catatan || '-'}</td>
+                        </tr>
+                    `;
+                });
+
+                container.innerHTML += `
+                    <div class="border border-indigo-100 rounded-lg p-4 bg-indigo-50/30">
+                        <div class="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
+                            <h3 class="font-bold text-gray-800 text-lg">🏃‍♂️ ${aktivitas.nama}</h3>
+                            <span class="text-sm text-gray-500 font-mono">${aktivitas.tanggal}</span>
+                        </div>
+                        <h4 class="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-1">Isi Data Kolom JSONB (Splits):</h4>
+                        <table class="w-full text-xs text-left border bg-white rounded">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700">
+                                    <th class="p-1.5 border">KM</th>
+                                    <th class="p-1.5 border">Pace</th>
+                                    <th class="p-1.5 border">Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${barisTabelHTML}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+        }
+
+        // Jalankan fetch data otomatis saat halaman pertama kali dibuka
+        fetchDataDariSupabase();
+    </script>
+</body>
+</html>
