@@ -31,7 +31,7 @@
                     <table class="w-full text-sm text-left border">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="p-2 border">KM Ke-</th>
+                                <th class="p-2 border text-center">KM Ke-</th>
                                 <th class="p-2 border">Pace (/KM)</th>
                                 <th class="p-2 border">Catatan Rute</th>
                                 <th class="p-2 border text-center">Aksi</th>
@@ -42,15 +42,15 @@
                                 <td class="p-2 border font-bold text-center input-km-ke">1</td>
                                 <td class="p-2 border"><input type="text" placeholder="06:15" required class="w-full p-1 border rounded input-pace"></td>
                                 <td class="p-2 border"><input type="text" placeholder="Kondisi rute datar" class="w-full p-1 border rounded input-catatan"></td>
-                                <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline">Hapus</button></td>
+                                <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline cursor-pointer">Hapus</button></td>
                             </tr>
                         </tbody>
                     </table>
-                    <button type="button" onclick="tambahBaris()" class="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">+ Tambah KM</button>
+                    <button type="button" onclick="tambahBaris()" class="mt-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 cursor-pointer">+ Tambah KM</button>
                 </div>
 
                 <div class="pt-4 text-right">
-                    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded font-medium hover:bg-indigo-700">Simpan ke Supabase DB</button>
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded font-medium hover:bg-indigo-700 cursor-pointer">Simpan ke Supabase DB</button>
                 </div>
             </form>
         </div>
@@ -58,7 +58,7 @@
         <div class="bg-white p-6 rounded-lg shadow-md">
             <h2 class="text-xl font-semibold mb-4 text-gray-800">📊 View Data dari DB (JSONB Render)</h2>
             <div class="text-right mb-4">
-                <button onclick="fetchDataDariSupabase()" class="bg-gray-600 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-700">🔄 Refresh Data</button>
+                <button onclick="fetchDataDariSupabase()" class="bg-gray-600 text-white px-4 py-1.5 rounded text-sm hover:bg-gray-700 cursor-pointer">🔄 Refresh Data</button>
             </div>
             
             <div id="loading-text" class="text-center text-gray-500 hidden">Memuat data dari database...</div>
@@ -68,153 +68,157 @@
     </div>
 
     <script>
-        // CONFIG SUPABASE
-const SUPABASE_URL = "https://iqvkcevgspvrmiyxoqpd.supabase.co"; // Diperbaiki: Hapus /rest/v1/ di akhir URL utama
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxdmtjZXZnc3B2cm1peXhvcXBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjAzMTcsImV4cCI6MjA5ODk5NjMxN30.DkJuryUJhqpwq_hsfY0BpDnyELv-8ZeduU37BA1LuiQ";
+        // CONFIG SUPABASE: URL telah dibersihkan dari rute /rest/v1/ bawaan PostgREST
+        const SUPABASE_URL = "https://iqvkcevgspvrmiyxoqpd.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxdmtjZXZnc3B2cm1peXhvcXBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MjAzMTcsImV4cCI6MjA5ODk5NjMxN30.DkJuryUJhqpwq_hsfY0BpDnyELv-8ZeduU37BA1LuiQ";
 
-// PERBAIKAN: Ubah nama variabel agar tidak tabrakan dengan object bawaan CDN
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // INISIALISASI: Menggunakan 'supabaseClient' untuk mencegah tabrakan dengan object internal bawaan CDN
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let counterKM = 1;
+        let counterKM = 1;
 
-// Fungsi JavaScript untuk menambah baris input KM secara dinamis
-function tambahBaris() {
-    counterKM++;
-    const tbody = document.getElementById('container-input-splits');
-    const tr = document.createElement('tr');
-    tr.className = 'baris-split';
-    tr.innerHTML = `
-        <td class="p-2 border font-bold text-center input-km-ke">${counterKM}</td>
-        <td class="p-2 border"><input type="text" placeholder="05:50" required class="w-full p-1 border rounded input-pace"></td>
-        <td class="p-2 border"><input type="text" placeholder="Catatan.." class="w-full p-1 border rounded input-catatan"></td>
-        <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline">Hapus</button></td>
-    `;
-    tbody.appendChild(tr);
-    urutkanUlangKM();
-}
-
-function hapusBaris(button) {
-    const baris = button.closest('tr');
-    baris.remove();
-    urutkanUlangKM();
-}
-
-function urutkanUlangKM() {
-    const semuaBaris = document.querySelectorAll('.baris-split');
-    counterKM = 0;
-    semuaBaris.forEach((baris) => {
-        counterKM++;
-        baris.querySelector('.input-km-ke').innerText = counterKM;
-    });
-}
-
-// PROSES SIMPAN (INSERT) KE SUPABASE
-document.getElementById('form-aktivitas').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const nama = document.getElementById('nama').value;
-    const tanggal = document.getElementById('tanggal').value;
-
-    // Ekstraksi data dinamis tabel menjadi Array JSON
-    const dataSplitsJSON = [];
-    const semuaBaris = document.querySelectorAll('.baris-split');
-    
-    semuaBaris.forEach((baris) => {
-        const km = parseInt(baris.querySelector('.input-km-ke').innerText);
-        const pace = baris.querySelector('.input-pace').value;
-        const catatan = baris.querySelector('.input-catatan').value;
-        
-        dataSplitsJSON.push({ km, pace, catatan });
-    });
-
-    // Menggunakan variabel baru: supabaseClient
-    const { data, error } = await supabaseClient
-        .from('aktivitas_lari') 
-        .insert([{ nama, tanggal, splits: dataSplitsJSON }]);
-
-    if (error) {
-        alert('Gagal menyimpan ke DB: ' + error.message);
-    } else {
-        alert('Berhasil menyimpan data JSON panjang ke DB!');
-        document.getElementById('form-aktivitas').reset();
-        document.getElementById('container-input-splits').innerHTML = `
-            <tr class="baris-split">
-                <td class="p-2 border font-bold text-center input-km-ke">1</td>
-                <td class="p-2 border"><input type="text" placeholder="06:15" required class="w-full p-1 border rounded input-pace"></td>
-                <td class="p-2 border"><input type="text" placeholder="..." class="w-full p-1 border rounded input-catatan"></td>
-                <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline">Hapus</button></td>
-            </tr>
-        `;
-        urutkanUlangKM();
-        fetchDataDariSupabase(); // Muat ulang daftar view
-    }
-});
-
-// PROSES MENGAMBIL DATA (SELECT & RENDER VIEW)
-async function fetchDataDariSupabase() {
-    const loading = document.getElementById('loading-text');
-    const container = document.getElementById('container-view-aktivitas');
-    
-    loading.classList.remove('hidden');
-    container.innerHTML = '';
-
-    // Menggunakan variabel baru: supabaseClient
-    const { data, error } = await supabaseClient
-        .from('aktivitas_lari')
-        .select('*')
-        .order('tanggal', { ascending: false });
-
-    loading.classList.add('hidden');
-
-    if (error) {
-        container.innerHTML = `<p class="text-red-500 text-center">Gagal memuat: ${error.message}</p>`;
-        return;
-    }
-
-    if (data.length === 0) {
-        container.innerHTML = `<p class="text-gray-500 text-center py-4">Belum ada data aktivitas lari.</p>`;
-        return;
-    }
-
-    // Render hasil ke komponen View
-    data.forEach((aktivitas) => {
-        let barisTabelHTML = '';
-        const listSplits = aktivitas.splits || [];
-        
-        listSplits.forEach((split) => {
-            barisTabelHTML += `
-                <tr class="bg-gray-50">
-                    <td class="p-1.5 border text-center font-semibold">KM ${split.km}</td>
-                    <td class="p-1.5 border text-indigo-600">${split.pace} /KM</td>
-                    <td class="p-1.5 border text-gray-600 text-xs">${split.catatan || '-'}</td>
-                </tr>
+        // Fungsi JavaScript untuk menambah baris input KM secara dinamis
+        function tambahBaris() {
+            counterKM++;
+            const tbody = document.getElementById('container-input-splits');
+            const tr = document.createElement('tr');
+            tr.className = 'baris-split';
+            tr.innerHTML = `
+                <td class="p-2 border font-bold text-center input-km-ke">${counterKM}</td>
+                <td class="p-2 border"><input type="text" placeholder="05:50" required class="w-full p-1 border rounded input-pace"></td>
+                <td class="p-2 border"><input type="text" placeholder="Catatan.." class="w-full p-1 border rounded input-catatan"></td>
+                <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline cursor-pointer">Hapus</button></td>
             `;
+            tbody.appendChild(tr);
+            urutkanUlangKM();
+        }
+
+        // Fungsi menghapus baris tabel input
+        function hapusBaris(button) {
+            const baris = button.closest('tr');
+            baris.remove();
+            urutkanUlangKM();
+        }
+
+        // Penataan ulang nomor urut KM otomatis setelah penambahan/penghapusan baris
+        function urutkanUlangKM() {
+            const semuaBaris = document.querySelectorAll('.baris-split');
+            counterKM = 0;
+            semuaBaris.forEach((baris) => {
+                counterKM++;
+                baris.querySelector('.input-km-ke').innerText = counterKM;
+            });
+        }
+
+        // PROSES SIMPAN (INSERT) KE SUPABASE
+        document.getElementById('form-aktivitas').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const nama = document.getElementById('nama').value;
+            const tanggal = document.getElementById('tanggal').value;
+
+            // Ekstraksi data dinamis tabel menjadi Array JSON
+            const dataSplitsJSON = [];
+            const semuaBaris = document.querySelectorAll('.baris-split');
+            
+            semuaBaris.forEach((baris) => {
+                const km = parseInt(baris.querySelector('.input-km-ke').innerText);
+                const pace = baris.querySelector('.input-pace').value;
+                const catatan = baris.querySelector('.input-catatan').value;
+                
+                dataSplitsJSON.push({ km, pace, catatan });
+            });
+
+            // Kirim Objek JSON langsung ke kolom 'splits' melalui supabaseClient
+            const { data, error } = await supabaseClient
+                .from('aktivitas_lari')
+                .insert([{ nama, tanggal, splits: dataSplitsJSON }]);
+
+            if (error) {
+                alert('Gagal menyimpan ke DB: ' + error.message);
+            } else {
+                alert('Berhasil menyimpan data JSON panjang ke DB!');
+                document.getElementById('form-aktivitas').reset();
+                
+                // Kembalikan form ke keadaan awal (1 baris kosong)
+                document.getElementById('container-input-splits').innerHTML = `
+                    <tr class="baris-split">
+                        <td class="p-2 border font-bold text-center input-km-ke">1</td>
+                        <td class="p-2 border"><input type="text" placeholder="06:15" required class="w-full p-1 border rounded input-pace"></td>
+                        <td class="p-2 border"><input type="text" placeholder="..." class="w-full p-1 border rounded input-catatan"></td>
+                        <td class="p-2 border text-center"><button type="button" onclick="hapusBaris(this)" class="text-red-500 hover:underline cursor-pointer">Hapus</button></td>
+                    </tr>
+                `;
+                urutkanUlangKM();
+                fetchDataDariSupabase(); // Sinkronisasi otomatis data di bagian View
+            }
         });
 
-        container.innerHTML += `
-            <div class="border border-indigo-100 rounded-lg p-4 bg-indigo-50/30">
-                <div class="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
-                    <h3 class="font-bold text-gray-800 text-lg">🏃‍♂️ ${aktivitas.nama}</h3>
-                    <span class="text-sm text-gray-500 font-mono">${aktivitas.tanggal}</span>
-                </div>
-                <h4 class="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-1">Isi Data Kolom JSONB (Splits):</h4>
-                <table class="w-full text-xs text-left border bg-white rounded">
-                    <thead>
-                        <tr class="bg-gray-100 text-gray-700">
-                            <th class="p-1.5 border">KM</th>
-                            <th class="p-1.5 border">Pace</th>
-                            <th class="p-1.5 border">Keterangan</th>
+        // PROSES MENGAMBIL DATA (SELECT & RENDER VIEW)
+        async function fetchDataDariSupabase() {
+            const loading = document.getElementById('loading-text');
+            const container = document.getElementById('container-view-aktivitas');
+            
+            loading.classList.remove('hidden');
+            container.innerHTML = '';
+
+            const { data, error } = await supabaseClient
+                .from('aktivitas_lari')
+                .select('*')
+                .order('tanggal', { ascending: false });
+
+            loading.classList.add('hidden');
+
+            if (error) {
+                container.innerHTML = `<p class="text-red-500 text-center">Gagal memuat: ${error.message}</p>`;
+                return;
+            }
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 text-center py-4">Belum ada data aktivitas lari.</p>`;
+                return;
+            }
+
+            // Render hasil array records ke dalam komponen komponen kartu (cards)
+            data.forEach((aktivitas) => {
+                let barisTabelHTML = '';
+                const listSplits = aktivitas.splits || [];
+                
+                listSplits.forEach((split) => {
+                    barisTabelHTML += `
+                        <tr class="bg-gray-50">
+                            <td class="p-1.5 border text-center font-semibold">KM ${split.km}</td>
+                            <td class="p-1.5 border text-indigo-600 font-mono">${split.pace} /KM</td>
+                            <td class="p-1.5 border text-gray-600 text-xs">${split.catatan || '-'}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        ${barisTabelHTML}
-                    </tbody>
-                </table>
-            </div>
-        `;
-    });
-}
-        // Jalankan fetch data otomatis saat halaman pertama kali dibuka
+                    `;
+                });
+
+                container.innerHTML += `
+                    <div class="border border-indigo-100 rounded-lg p-4 bg-indigo-50/30 shadow-xs">
+                        <div class="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
+                            <h3 class="font-bold text-gray-800 text-lg">🏃‍♂️ ${aktivitas.nama}</h3>
+                            <span class="text-sm text-gray-500 font-mono">${aktivitas.tanggal}</span>
+                        </div>
+                        <h4 class="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-1">Isi Data Kolom JSONB (Splits):</h4>
+                        <table class="w-full text-xs text-left border bg-white rounded">
+                            <thead>
+                                <tr class="bg-gray-100 text-gray-700">
+                                    <th class="p-1.5 border text-center w-16">KM</th>
+                                    <th class="p-1.5 border w-32">Pace</th>
+                                    <th class="p-1.5 border">Keterangan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${barisTabelHTML || '<tr><td colspan="3" class="p-2 border text-center text-gray-400">Tidak ada data split kilometer.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            });
+        }
+
+        // Jalankan pengambilan data otomatis saat halaman selesai dimuat pertama kali
         fetchDataDariSupabase();
     </script>
 </body>
