@@ -3,10 +3,10 @@
 @import url('./base/reset.css');
 @import url('./base/typography.css');
 
-/* --- LAYOUT --- 
+/* --- LAYOUT --- */
 @import url('./layout/layout.css');
 
-/* --- COMPONENTS --- 
+/* --- COMPONENTS --- */
 @import url('./components/header.css');
 @import url('./components/sidebar.css');
 @import url('./components/navigation.css');
